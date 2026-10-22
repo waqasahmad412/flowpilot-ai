@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile and authentication metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "description": "Unique Firebase Auth UID" },
+        "email": { "type": "string", "maxLength": 256, "description": "User primary email address" },
+        "name": { "type": "string", "maxLength": 128, "description": "Display name of the user" },
+        "role": { "type": "string", "enum": ["Owner", "Admin", "Editor", "Viewer"], "description": "User access role" },
+        "avatar": { "type": "string", "maxLength": 512, "description": "Avatar photo URL" },
+        "timezone": { "type": "string", "maxLength": 64, "description": "User timezone" },
+        "createdAt": { "type": "string", "maxLength": 64, "description": "ISO timestamp of account creation" },
+        "updatedAt": { "type": "string", "maxLength": 64, "description": "ISO timestamp of profile update" }
+      },
+      "required": ["id", "email", "name", "role", "createdAt"]
+    },
+    "Workspace": {
+      "title": "Workspace",
+      "description": "Organizational container for automations and pipelines",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "description": "Unique workspace ID" },
+        "name": { "type": "string", "maxLength": 128, "description": "Workspace display name" },
+        "slug": { "type": "string", "maxLength": 128, "description": "URL slug for workspace" },
+        "ownerId": { "type": "string", "maxLength": 128, "description": "UID of owner user" },
+        "plan": { "type": "string", "maxLength": 64, "description": "Billing plan tier" },
+        "createdAt": { "type": "string", "maxLength": 64, "description": "ISO timestamp of workspace creation" },
+        "updatedAt": { "type": "string", "maxLength": 64, "description": "ISO timestamp of last update" }
+      },
+      "required": ["id", "name", "ownerId", "plan", "createdAt"]
+    },
+    "Workflow": {
+      "title": "Workflow",
+      "description": "Intelligent automated pipeline consisting of graph nodes and connections",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "description": "Unique workflow ID" },
+        "name": { "type": "string", "maxLength": 256, "description": "Workflow name" },
+        "description": { "type": "string", "maxLength": 1024, "description": "Workflow summary" },
+        "category": { "type": "string", "maxLength": 64, "description": "Workflow category classification" },
+        "status": { "type": "string", "enum": ["active", "paused", "draft", "error"], "description": "Execution status" },
+        "workspaceId": { "type": "string", "maxLength": 128, "description": "Parent workspace ID" },
+        "ownerId": { "type": "string", "maxLength": 128, "description": "User UID of workflow author" },
+        "executionCount": { "type": "number", "description": "Total runs triggered" },
+        "successRate": { "type": "number", "description": "Historical percentage of successful runs" },
+        "lastExecutedAt": { "type": "string", "maxLength": 64, "description": "ISO timestamp of most recent execution" },
+        "createdAt": { "type": "string", "maxLength": 64, "description": "ISO creation timestamp" },
+        "updatedAt": { "type": "string", "maxLength": 64, "description": "ISO update timestamp" }
+      },
+      "required": ["id", "name", "workspaceId", "ownerId", "status", "createdAt"]
+    },
+    "WorkflowExecution": {
+      "title": "WorkflowExecution",
+      "description": "Historical audit record of a single workflow execution run",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "description": "Unique execution run ID" },
+        "workflowId": { "type": "string", "maxLength": 128, "description": "Executed workflow ID" },
+        "workflowName": { "type": "string", "maxLength": 256, "description": "Name snapshot of workflow" },
+        "status": { "type": "string", "enum": ["success", "failed", "running"], "description": "Run result" },
+        "startedAt": { "type": "string", "maxLength": 64, "description": "ISO start timestamp" },
+        "completedAt": { "type": "string", "maxLength": 64, "description": "ISO end timestamp" },
+        "durationMs": { "type": "number", "description": "Runtime in milliseconds" },
+        "triggeredBy": { "type": "string", "enum": ["manual", "webhook", "schedule", "ai_copilot"], "description": "Trigger source" },
+        "workspaceId": { "type": "string", "maxLength": 128, "description": "Associated workspace ID" },
+        "ownerId": { "type": "string", "maxLength": 128, "description": "Owner user UID" },
+        "tokensUsed": { "type": "number", "description": "Total AI tokens consumed during run" },
+        "error": { "type": "string", "maxLength": 2048, "description": "Error description if failed" }
+      },
+      "required": ["id", "workflowId", "workflowName", "status", "startedAt", "workspaceId", "ownerId", "triggeredBy"]
+    },
+    "IntegrationConfig": {
+      "title": "IntegrationConfig",
+      "description": "Service credentials and endpoint settings for connected integrations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "description": "Unique integration ID" },
+        "name": { "type": "string", "maxLength": 128, "description": "Integration display name" },
+        "category": { "type": "string", "maxLength": 64, "description": "Integration category" },
+        "status": { "type": "string", "enum": ["connected", "not_configured", "error"], "description": "Connection state" },
+        "authType": { "type": "string", "enum": ["native", "oauth", "api_key", "webhook"], "description": "Auth mechanism" },
+        "ownerId": { "type": "string", "maxLength": 128, "description": "Owner user UID" },
+        "lastVerifiedAt": { "type": "string", "maxLength": 64, "description": "ISO timestamp of last test ping" },
+        "updatedAt": { "type": "string", "maxLength": 64, "description": "ISO timestamp of update" }
+      },
+      "required": ["id", "name", "status", "authType", "ownerId"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "In-app operational alerts and execution notifications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "description": "Unique notification ID" },
+        "title": { "type": "string", "maxLength": 256, "description": "Notification subject" },
+        "message": { "type": "string", "maxLength": 1024, "description": "Detailed notification body" },
+        "type": { "type": "string", "enum": ["info", "success", "warning", "error"], "description": "Severity level" },
+        "timestamp": { "type": "string", "maxLength": 64, "description": "ISO timestamp" },
+        "read": { "type": "boolean", "description": "Read flag" },
+        "workflowId": { "type": "string", "maxLength": 128, "description": "Optional workflow ID" },
+        "executionId": { "type": "string", "maxLength": 128, "description": "Optional execution ID" },
+        "ownerId": { "type": "string", "maxLength": 128, "description": "Owner user UID" }
+      },
+      "required": ["id", "title", "message", "type", "timestamp", "read", "ownerId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles with strict owner-only access for PII isolation"
+    },
+    "/workspaces/{workspaceId}": {
+      "schema": "Workspace",
+      "description": "Team automation workspaces owned by individual users"
+    },
+    "/workflows/{workflowId}": {
+      "schema": "Workflow",
+      "description": "Automation workflow pipelines belonging to user workspaces"
+    },
+    "/executions/{executionId}": {
+      "schema": "WorkflowExecution",
+      "description": "Audit run histories and node execution step logs"
+    },
+    "/integrations/{integrationId}": {
+      "schema": "IntegrationConfig",
+      "description": "User integration configurations and webhook secrets"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "NotificationItem",
+      "description": "User alerts and system notifications"
+    }
+  }
+}

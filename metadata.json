@@ -1,0 +1,8 @@
+{
+  "name": "FlowPilot AI",
+  "description": "Enterprise-grade AI Automation Platform for designing, executing, testing, and monitoring intelligent workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

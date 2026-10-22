@@ -1,0 +1,180 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Default-deny catch-all for any unspecified routes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Runtime bootstrapped administrator check
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'waqasahmad08766@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // --- Entity Validation Helpers ---
+
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.email is string && data.email.size() <= 256 &&
+             data.name is string && data.name.size() <= 128 &&
+             data.role in ['Owner', 'Admin', 'Editor', 'Viewer'] &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidWorkspace(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 128 &&
+             data.ownerId == request.auth.uid &&
+             data.plan is string && data.plan.size() <= 64 &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidWorkflow(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 256 &&
+             data.workspaceId is string && data.workspaceId.size() <= 128 &&
+             data.ownerId == request.auth.uid &&
+             data.status in ['active', 'paused', 'draft', 'error'] &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidExecution(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.workflowId is string && data.workflowId.size() <= 128 &&
+             data.workflowName is string && data.workflowName.size() <= 256 &&
+             data.status in ['success', 'failed', 'running'] &&
+             data.workspaceId is string && data.workspaceId.size() <= 128 &&
+             data.ownerId == request.auth.uid &&
+             data.triggeredBy in ['manual', 'webhook', 'schedule', 'ai_copilot'] &&
+             data.startedAt is string && data.startedAt.size() <= 64;
+    }
+
+    function isValidIntegration(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 128 &&
+             data.ownerId == request.auth.uid &&
+             data.status in ['connected', 'not_configured', 'error'] &&
+             data.authType in ['native', 'oauth', 'api_key', 'webhook'];
+    }
+
+    function isValidNotification(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.message is string && data.message.size() <= 1024 &&
+             data.type in ['info', 'success', 'warning', 'error'] &&
+             data.ownerId == request.auth.uid &&
+             data.read is bool &&
+             data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    // --- Collections ---
+
+    // 1. Users Collection: PII Isolated to profile owner or admin
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().id == userId;
+      allow update: if (isOwner(userId) || isAdmin()) &&
+                       isValidUser(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin();
+    }
+
+    // 2. Workspaces Collection
+    match /workspaces/{workspaceId} {
+      allow get: if isSignedIn() && isValidId(workspaceId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(workspaceId) && isValidWorkspace(incoming()) && incoming().id == workspaceId;
+      allow update: if isSignedIn() && isValidId(workspaceId) && (existing().ownerId == request.auth.uid || isAdmin()) &&
+                       isValidWorkspace(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(workspaceId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 3. Workflows Collection
+    match /workflows/{workflowId} {
+      allow get: if isSignedIn() && isValidId(workflowId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(workflowId) && isValidWorkflow(incoming()) && incoming().id == workflowId;
+      allow update: if isSignedIn() && isValidId(workflowId) && (existing().ownerId == request.auth.uid || isAdmin()) &&
+                       isValidWorkflow(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().workspaceId == existing().workspaceId &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && isValidId(workflowId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 4. Workflow Executions Collection
+    match /executions/{executionId} {
+      allow get: if isSignedIn() && isValidId(executionId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(executionId) && isValidExecution(incoming()) && incoming().id == executionId;
+      allow update: if isSignedIn() && isValidId(executionId) && (existing().ownerId == request.auth.uid || isAdmin()) &&
+                       isValidExecution(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().startedAt == existing().startedAt;
+      allow delete: if isSignedIn() && isValidId(executionId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 5. Integrations Collection
+    match /integrations/{integrationId} {
+      allow get: if isSignedIn() && isValidId(integrationId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(integrationId) && isValidIntegration(incoming()) && incoming().id == integrationId;
+      allow update: if isSignedIn() && isValidId(integrationId) && (existing().ownerId == request.auth.uid || isAdmin()) &&
+                       isValidIntegration(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().ownerId == existing().ownerId;
+      allow delete: if isSignedIn() && isValidId(integrationId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 6. Notifications Collection
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && isValidId(notificationId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(notificationId) && isValidNotification(incoming()) && incoming().id == notificationId;
+      allow update: if isSignedIn() && isValidId(notificationId) && (existing().ownerId == request.auth.uid || isAdmin()) &&
+                       isValidNotification(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().timestamp == existing().timestamp;
+      allow delete: if isSignedIn() && isValidId(notificationId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // Admins Collection: Read-only access by the user themselves
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && request.auth.uid == adminId;
+      allow list, write: if false;
+    }
+  }
+}
